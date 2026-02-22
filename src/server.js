@@ -1,6 +1,7 @@
 const createApp = require("./app");
 const { config, validateConfig } = require("./config/env");
 const { disconnectPrisma } = require("./config/prisma");
+const { disconnectRedis } = require("./config/redis");
 const cronManager = require("./config/cron");
 const logger = require("./utils/logger");
 
@@ -37,6 +38,9 @@ const startServer = async () => {
 
         // Disconnect from database
         await disconnectPrisma();
+
+        // Disconnect Redis
+        await disconnectRedis();
 
         process.exit(0);
       });

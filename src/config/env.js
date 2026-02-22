@@ -28,6 +28,9 @@ const config = {
 
   // CORS Configuration
   corsOrigin: process.env.CORS_ORIGIN || "*",
+
+  // Redis Configuration
+  redisUrl: process.env.REDIS_URL || "redis://localhost:6379",
 };
 
 // Validate critical environment variables

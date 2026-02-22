@@ -3,6 +3,7 @@ const evaluationService = require("../services/evaluation.service");
 const penaltyService = require("../services/penalty.service");
 const statsService = require("../services/stats.service");
 const { asyncHandler } = require("../middlewares/error.middleware");
+const { getLeaderboardCache, setLeaderboardCache } = require("../services/cache.service");
 
 /**
  * Get dashboard overview for current user
@@ -64,10 +65,10 @@ const getDashboard = asyncHandler(async (req, res) => {
         totalPenalties: membership.totalPenalties,
         todayStatus: todayResult
           ? {
-              completed: todayResult.completed,
-              submissionsCount: todayResult.submissionsCount,
-              evaluatedAt: todayResult.evaluatedAt,
-            }
+            completed: todayResult.completed,
+            submissionsCount: todayResult.submissionsCount,
+            evaluatedAt: todayResult.evaluatedAt,
+          }
           : null,
         recentResults: recentResults.map((r) => ({
           date: r.date,
@@ -166,7 +167,16 @@ const getChallengeProgress = asyncHandler(async (req, res) => {
 const getChallengeLeaderboard = asyncHandler(async (req, res) => {
   const { challengeId } = req.params;
 
-  // Get all members with their stats
+  // Check cache first
+  const cachedData = await getLeaderboardCache(challengeId);
+  if (cachedData) {
+    return res.status(200).json({
+      success: true,
+      data: cachedData,
+    });
+  }
+
+  // Cache miss — query database (original logic unchanged)
   const members = await prisma.challengeMember.findMany({
     where: {
       challengeId,
@@ -211,6 +221,9 @@ const getChallengeLeaderboard = asyncHandler(async (req, res) => {
       };
     })
   );
+
+  // Store in cache (fire-and-forget, errors handled internally)
+  await setLeaderboardCache(challengeId, leaderboard);
 
   res.status(200).json({
     success: true,
@@ -266,11 +279,11 @@ const getTodayStatus = asyncHandler(async (req, res) => {
         requiredSubmissions: membership.challenge.minSubmissionsPerDay,
         status: result
           ? {
-              completed: result.completed,
-              submissionsCount: result.submissionsCount,
-              problemsSolved: result.problemsSolved,
-              evaluatedAt: result.evaluatedAt,
-            }
+            completed: result.completed,
+            submissionsCount: result.submissionsCount,
+            problemsSolved: result.problemsSolved,
+            evaluatedAt: result.evaluatedAt,
+          }
           : null,
       };
     })

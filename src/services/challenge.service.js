@@ -1,6 +1,7 @@
 const { prisma } = require("../config/prisma");
 const { AppError } = require("../middlewares/error.middleware");
 const logger = require("../utils/logger");
+const { invalidateLeaderboardCache } = require("./cache.service");
 
 /**
  * Create a new challenge
@@ -216,6 +217,13 @@ const joinChallenge = async (userId, challengeId) => {
   logger.info(
     `User ${membership.user.username} joined challenge: ${membership.challenge.name}`
   );
+
+  // Invalidate leaderboard cache when a new member joins
+  try {
+    await invalidateLeaderboardCache(challengeId);
+  } catch (err) {
+    logger.warn(`Cache invalidation failed after joinChallenge: ${err.message}`);
+  }
 
   return membership;
 };

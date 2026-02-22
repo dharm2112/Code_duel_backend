@@ -1,5 +1,6 @@
 const { prisma } = require("../config/prisma");
 const logger = require("../utils/logger");
+const { invalidateLeaderboardCache } = require("./cache.service");
 
 /**
  * Apply penalty to a challenge member
@@ -45,6 +46,13 @@ const applyPenalty = async (memberId, amount, reason, date) => {
   logger.info(
     `Penalty applied: ${amount} to ${member.user.username} for ${member.challenge.name}. Reason: ${reason}`
   );
+
+  // Invalidate leaderboard cache when penalties change
+  try {
+    await invalidateLeaderboardCache(member.challengeId);
+  } catch (err) {
+    logger.warn(`Cache invalidation failed after applyPenalty: ${err.message}`);
+  }
 
   return penalty;
 };
@@ -157,6 +165,13 @@ const adjustPenalty = async (penaltyId, adjustmentAmount) => {
   logger.info(
     `Penalty adjusted: ${penaltyId}, adjustment: ${adjustmentAmount}`
   );
+
+  // Invalidate leaderboard cache when penalties are adjusted
+  try {
+    await invalidateLeaderboardCache(penalty.member.challengeId);
+  } catch (err) {
+    logger.warn(`Cache invalidation failed after adjustPenalty: ${err.message}`);
+  }
 
   return updatedMember;
 };

@@ -2,6 +2,7 @@ const { prisma } = require("../config/prisma");
 const leetcodeService = require("./leetcode.service");
 const penaltyService = require("./penalty.service");
 const logger = require("../utils/logger");
+const { invalidateLeaderboardCache } = require("./cache.service");
 
 /**
  * Run daily evaluation for all active challenges
@@ -167,8 +168,7 @@ const evaluateMember = async (challenge, member, evaluationDate) => {
     );
 
     logger.debug(
-      `Filtered ${enrichedSubmissions.length} submissions to ${
-        filteredSubmissions.length
+      `Filtered ${enrichedSubmissions.length} submissions to ${filteredSubmissions.length
       } matching difficulties: ${challenge.difficultyFilter.join(", ")}`
     );
   }
@@ -216,8 +216,7 @@ const evaluateMember = async (challenge, member, evaluationDate) => {
   }
 
   logger.info(
-    `Member ${user.username} evaluation: ${
-      completed ? "PASSED" : "FAILED"
+    `Member ${user.username} evaluation: ${completed ? "PASSED" : "FAILED"
     } (${submissionsCount}/${challenge.minSubmissionsPerDay})`
   );
 };
@@ -234,7 +233,7 @@ const createDailyResult = async (
   problemsSolved,
   metadata = {}
 ) => {
-  return await prisma.dailyResult.create({
+  const result = await prisma.dailyResult.create({
     data: {
       challengeId,
       memberId,
@@ -246,6 +245,15 @@ const createDailyResult = async (
       metadata,
     },
   });
+
+  // Invalidate leaderboard cache when new results are created
+  try {
+    await invalidateLeaderboardCache(challengeId);
+  } catch (err) {
+    logger.warn(`Cache invalidation failed after createDailyResult: ${err.message}`);
+  }
+
+  return result;
 };
 
 /**
@@ -276,6 +284,13 @@ const updateStreak = async (memberId, completed) => {
         currentStreak: 0,
       },
     });
+  }
+
+  // Invalidate leaderboard cache when streaks change
+  try {
+    await invalidateLeaderboardCache(member.challengeId);
+  } catch (err) {
+    logger.warn(`Cache invalidation failed after updateStreak: ${err.message}`);
   }
 };
 
